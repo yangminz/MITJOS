@@ -352,8 +352,33 @@ page_decref(struct PageInfo* pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
+	// cprintf("pgdir walk\n");
 	// Fill this function in
-	return NULL;
+	pde_t * pg_dir_entry = NULL;
+	pte_t * pg_tlb = NULL;
+	struct PageInfo * new_page_frame = NULL;
+
+	pg_dir_entry = &pgdir[PDX(va)];
+	// Present bit = 1 indicates that the entry can be used
+	if((*pg_tlb & PTE_P) == 1){
+		pg_tlb = KADDR(PTE_ADDR(*pg_dir_entry));
+	}
+	// PTE present bit = 0: the page table not exist
+	else{
+		// do not create
+		if(create == 0)
+			return NULL;
+		// fail to allocate
+		if(!(new_page_frame = page_alloc(ALLOC_ZERO)))
+			return NULL;
+		// not consistent
+		if(pg_tlb != (pte_t*)page2kva(new_page_frame))
+			return NULL;
+		// the new page's reference count is incremented
+		new_page_frame->pp_ref ++;
+		*pg_dir_entry = PADDR(pg_tlb)|PTE_P|PTE_W|PTE_U;
+	}
+	return &pg_tlb[PTX(va)];
 }
 
 //
@@ -370,7 +395,22 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
+	// cprintf("boot map region\n");
 	// Fill this function in
+	pte_t * pg_tlb_entry = NULL;
+
+	int i = 0;
+	ROUNDUP(size, PGSIZE); //align
+
+	for(i = 0; i < size/PGSIZE; i ++){
+		pg_tlb_entry = pgdir_walk(pgdir, (void*)va, 1);
+
+		if(pg_tlb_entry == NULL) return;
+
+		*pg_tlb_entry = PTE_ADDR(pa) | (perm|PTE_P);
+		pa += PGSIZE;
+		va += PGSIZE;
+	}
 }
 
 //
@@ -401,7 +441,29 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
+	// cprintf("page insert\n");
 	// Fill this function in
+	pte_t * pg_tlb_entry = pgdir_walk(pgdir, va, 1);
+	physaddr_t pa = page2pa(pp);
+
+	if(pg_tlb_entry == NULL)
+		return -E_NO_MEM;
+	
+	// If there is already a page mapped at 'va', it should be page_remove()d
+	if(*pg_tlb_entry & PTE_P){
+		if(PTE_ADDR(*pg_tlb_entry) == page2pa(pp)){
+			// The TLB must be invalidated if a page was formerly present at 'va'
+			tlb_invalidate(pgdir, va);
+			pp->pp_ref --;
+		}
+		else{ page_remove(pgdir, va); }
+	}
+
+	// a page table should be allocated and inserted into 'pgdir'
+	* pg_tlb_entry = page2pa(pp)|perm|PTE_P;
+	// pp->pp_ref should be incremented if the insertion succeeds
+	pp->pp_ref ++;
+	
 	return 0;
 }
 
@@ -420,7 +482,13 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	return NULL;
+	// cprintf("page lookup \n");
+	pte_t * pg_tlb_entry = pgdir_walk(pgdir, va, 0);
+	*pte_store = pg_tlb_entry;
+
+	if(pg_tlb_entry == NULL)
+		return NULL;
+	return  pa2page(PTE_ADDR(* pg_tlb_entry));
 }
 
 //
@@ -441,7 +509,19 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 void
 page_remove(pde_t *pgdir, void *va)
 {
+	// cprintf("page remove\n");
 	// Fill this function in
+	pte_t **pte_store = NULL;
+	pte_t * pg_tlb_entry = pgdir_walk(pgdir, va, 0);
+	struct PageInfo* page_frame = page_lookup(pgdir, va, pte_store);
+	// The physical page should be freed if the refcount reaches 0
+	if(page_frame == NULL) return;
+	// The ref count on the physical page should decrement
+	page_decref(page_frame); 
+	// The pg table entry corresponding to 'va' should be set to 0
+	** pte_store = 0;
+	// The TLB must be invalidated if you remove an entry
+	tlb_invalidate(pgdir, va);
 }
 
 //

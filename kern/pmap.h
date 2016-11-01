@@ -72,7 +72,7 @@ static inline struct PageInfo*
 pa2page(physaddr_t pa)
 {
 	if (PGNUM(pa) >= npages)
-		panic("pa2page called with invalid pa");
+		panic("pa2page called with invalid pa\npa:\t %08x \nPGNUM:\t %d \nnpages:\t %d\n", pa, PGNUM(pa), npages);
 	return &pages[PGNUM(pa)];
 }
 
