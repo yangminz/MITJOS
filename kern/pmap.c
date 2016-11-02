@@ -327,6 +327,18 @@ page_decref(struct PageInfo* pp)
 		page_free(pp);
 }
 
+void
+print_page_free_list(){
+	struct PageInfo * ptr = page_free_list;
+	cprintf(">>> print page_free_list\n");
+	cprintf("    page_free_list\t%08x!\n", page_free_list);
+	while(ptr != NULL){
+		cprintf("    node\t%08x\n", *ptr);
+		ptr = ptr->pp_link;
+	}
+	cprintf(">>> end of printing page_free_list\n");
+}
+
 // Given 'pgdir', a pointer to a page directory, pgdir_walk returns
 // a pointer to the page table entry (PTE) for linear address 'va'.
 // This requires walking the two-level page table structure.
@@ -352,28 +364,30 @@ page_decref(struct PageInfo* pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-	// cprintf("pgdir walk\n");
 	// Fill this function in
 	pde_t * pg_dir_entry = NULL;
 	pte_t * pg_tlb = NULL;
 	struct PageInfo * new_page_frame = NULL;
-
 	pg_dir_entry = &pgdir[PDX(va)];
 	// Present bit = 1 indicates that the entry can be used
-	if((*pg_tlb & PTE_P) == 1){
+	if(*pg_dir_entry & PTE_P){
 		pg_tlb = KADDR(PTE_ADDR(*pg_dir_entry));
+		return &pg_tlb[PTX(va)];
 	}
 	// PTE present bit = 0: the page table not exist
 	else{
 		// do not create
-		if(create == 0)
+		if(create == 0){
+			//cprintf("pgdir_walk: do not create\n");
 			return NULL;
+		}
+		new_page_frame = page_alloc(ALLOC_ZERO);
 		// fail to allocate
-		if(!(new_page_frame = page_alloc(ALLOC_ZERO)))
+		if(new_page_frame == NULL){
+			//cprintf("pgdir_walk: fail to allocate\n");
 			return NULL;
-		// not consistent
-		if(pg_tlb != (pte_t*)page2kva(new_page_frame))
-			return NULL;
+		}
+		pg_tlb = (pte_t*)page2kva(new_page_frame);
 		// the new page's reference count is incremented
 		new_page_frame->pp_ref ++;
 		*pg_dir_entry = PADDR(pg_tlb)|PTE_P|PTE_W|PTE_U;
@@ -443,6 +457,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 	// cprintf("page insert\n");
 	// Fill this function in
+	//
 	pte_t * pg_tlb_entry = pgdir_walk(pgdir, va, 1);
 	physaddr_t pa = page2pa(pp);
 
@@ -451,10 +466,10 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	
 	// If there is already a page mapped at 'va', it should be page_remove()d
 	if(*pg_tlb_entry & PTE_P){
-		if(PTE_ADDR(*pg_tlb_entry) == page2pa(pp)){
+		if(PTE_ADDR(*pg_tlb_entry) == pa){
 			// The TLB must be invalidated if a page was formerly present at 'va'
 			tlb_invalidate(pgdir, va);
-			pp->pp_ref --;
+			pp->pp_ref--;
 		}
 		else{ page_remove(pgdir, va); }
 	}
@@ -482,9 +497,10 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	// cprintf("page lookup \n");
+	//cprintf("page lookup \n");
 	pte_t * pg_tlb_entry = pgdir_walk(pgdir, va, 0);
 	*pte_store = pg_tlb_entry;
+	//cprintf("*pg_tlb_entry\t%08x\n", *pg_tlb_entry);
 
 	if(pg_tlb_entry == NULL)
 		return NULL;
@@ -511,8 +527,8 @@ page_remove(pde_t *pgdir, void *va)
 {
 	// cprintf("page remove\n");
 	// Fill this function in
-	pte_t **pte_store = NULL;
 	pte_t * pg_tlb_entry = pgdir_walk(pgdir, va, 0);
+	pte_t **pte_store = &pg_tlb_entry;
 	struct PageInfo* page_frame = page_lookup(pgdir, va, pte_store);
 	// The physical page should be freed if the refcount reaches 0
 	if(page_frame == NULL) return;
@@ -781,11 +797,15 @@ check_page(void)
 	assert(page_lookup(kern_pgdir, (void *) 0x0, &ptep) == NULL);
 
 	// there is no free memory, so we can't allocate a page table
+	//cprintf("check1 %d\n", page_insert(kern_pgdir, pp1, 0x0, PTE_W));
 	assert(page_insert(kern_pgdir, pp1, 0x0, PTE_W) < 0);
-
+	//print_page_free_list();
 	// free pp0 and try again: pp0 should be used for page table
 	page_free(pp0);
+	//print_page_free_list();
+	//cprintf("check2 %d %d\n", page_insert(kern_pgdir, pp1, 0x0, PTE_W), -E_NO_MEM);
 	assert(page_insert(kern_pgdir, pp1, 0x0, PTE_W) == 0);
+	
 	assert(PTE_ADDR(kern_pgdir[0]) == page2pa(pp0));
 	assert(check_va2pa(kern_pgdir, 0x0) == page2pa(pp1));
 	assert(pp1->pp_ref == 1);
