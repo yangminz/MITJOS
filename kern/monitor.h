@@ -16,4 +16,8 @@ int mon_help(int argc, char **argv, struct Trapframe *tf);
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
 
+// yangminz: my commands
+int mon_showmappings(int argc, char **argv, struct Trapframe *tf);
+int mon_permission(int argc, char **argv, struct Trapframe *tf);
+
 #endif	// !JOS_KERN_MONITOR_H

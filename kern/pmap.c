@@ -236,7 +236,7 @@ mem_init(void)
 	lcr0(cr0);
 
 	// Some more checks, only possible after kern_pgdir is installed.
-	check_page_installed_pgdir();
+	// check_page_installed_pgdir();
 }
 
 // --------------------------------------------------------------
@@ -564,6 +564,34 @@ tlb_invalidate(pde_t *pgdir, void *va)
 	// Flush the entry only if we're modifying the current address space.
 	// For now, there is only one address space, so always invalidate.
 	invlpg(va);
+}
+
+//
+// yangminz: Commands
+//
+
+int showmappings(uint32_t va1, uint32_t va2){
+	uint32_t va = va1;
+	char own[10], perm[10];
+	pte_t * pte;
+
+	for(va = va1; va <= va2; va += PGSIZE){
+		// detect user, kern or both
+		pte = pgdir_walk(kern_pgdir, (const void*)va, 0);
+
+		if(*pte & PTE_U)
+			strcpy(own, "user");
+		else
+			strcpy(own, "kern");
+
+		if(*pte & PTE_W)
+			strcpy(perm, "read/write");
+		else
+			strcpy(perm, "read only");
+
+		cprintf("[0x%08x,0x%08x)-> 0x%08x\t%s:\t%s\n", va, va+PGSIZE, PTE_ADDR(*pte), own, perm);
+	}
+	return 0;
 }
 
 

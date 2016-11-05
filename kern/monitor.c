@@ -24,6 +24,9 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	// yanginz: add commands
+	{ "showmappings", "Display all of the physical page mappings", mon_showmappings },
+	{ "permission", "Explicitly set, clear, or change the permissions of mappings", mon_permission },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -80,6 +83,60 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		debuginfo_eip(addr, &info);
 		ebp = (uint32_t *)(*(uint32_t *)ebp);
 	}
+	return 0;
+}
+
+//
+// yangminz: commands added
+//
+
+int showmappings(uint32_t va1, uint32_t va2);
+int mon_showmappings(int argc, char **argv, struct Trapframe *tf){
+	uint32_t va1, va2;
+	uint32_t va = 0;
+	bool unexpected = false;
+
+	if(argc != 3)
+		unexpected = true;
+	if(!(va1 = strtol(argv[1], NULL, 16)))
+		unexpected = true;
+	if(!(va2 = strtol(argv[2], NULL, 16)))
+		unexpected = true;
+	if( va1 != ROUNDUP(va1, PGSIZE) ||
+		va2 != ROUNDUP(va2, PGSIZE) ||
+		va1 > va2)
+		unexpected = true;
+
+	if(unexpected){
+		cprintf("Not expected number! Align with PGSIZE = 0x%08x!\n", PGSIZE);
+		return 0;
+	}
+
+	showmappings(va1, va2);
+
+	return 0;
+}
+
+
+int mon_permission(int argc, char **argv, struct Trapframe *tf){
+	uint32_t va;
+	uint32_t newperm;
+	bool unexpected = false;
+
+	if(argc != 3 || !(va = strtol(argv[1], NULL, 16)))
+		unexpected = true;
+	if(va != ROUNDUP(va, PGSIZE))
+		unexpected = true;
+
+
+
+	{
+		cprintf("Not expected input! permission va newperm is wanted\nTo clear, leave newperm -4\n");
+		return 0;
+	}
+	newperm = strtol(argv[2], NULL, 0);
+
+
 	return 0;
 }
 
