@@ -27,6 +27,7 @@ static struct Command commands[] = {
 	// yanginz: add commands
 	{ "showmappings", "Display all of the physical page mappings", mon_showmappings },
 	{ "permission", "Explicitly set, clear, or change the permissions of mappings", mon_permission },
+	{ "dumpmem", "Dump the contents of a range of memory", mon_dumpmemory },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -109,7 +110,7 @@ int mon_showmappings(int argc, char **argv, struct Trapframe *tf){
 
 	if(unexpected){
 		cprintf("Not expected number! Usage\n");
-		cprintf("K> showmappings 0xva_low 0xva_high\n");
+		cprintf(" > showmappings 0xva_low 0xva_high\n");
 		return 0;
 	}
 
@@ -144,7 +145,7 @@ int mon_permission(int argc, char **argv, struct Trapframe *tf){
 	if(unexpected)
 	{
 		cprintf("Not expected input! Usage\n");
-		cprintf("K> permission 0xva [c|s :clear or set] [P|W|U]\n");
+		cprintf(" > permission 0xva [c|s :clear or set] [P|W|U]\n");
 		return 0;
 	}
 
@@ -161,6 +162,39 @@ int mon_permission(int argc, char **argv, struct Trapframe *tf){
 	}
 
 	cprintf("current: 0x%08x\tP: %1d\tW: %1d\tU: %1d\n", va, *pte&PTE_P, *pte&PTE_W, *pte&PTE_U);
+	return 0;
+}
+
+int mon_dumpmemory(int argc, char **argv, struct Trapframe *tf){
+	bool unexpected = false;
+	uint32_t n = -1, i = 0, bias = KERNBASE/4;
+	void ** addr = NULL;
+	char type;
+
+	type = argv[1][0];
+	if(argc != 4 || !(addr = (void **)strtol(argv[2], 0, 16)))
+		unexpected = true;
+	n = strtol(argv[3], 0, 0);
+	if(addr != ROUNDUP(addr, PGSIZE) ||
+		!(type == 'p' || type == 'v') ||
+		n <= 0)
+		unexpected = true;
+
+	if(unexpected){
+		cprintf("Not expected input! Usage:\n");
+		cprintf(" > dumpmem [p|v addr type] 0xaddr N\n");
+	}
+
+	if(type == 'p'){
+		cprintf("!\n");
+		for(i = bias; i < n + bias; i ++)
+		cprintf("physical memory:0x%08x\tvalue:0x%08x\n", addr + i, addr[i]);
+	}
+	if(type == 'v'){
+		for(i = 0; i < n; i ++)
+		cprintf("virtual memory:0x%08x\tvalue:0x%08x\n", addr + i, addr[i]);
+	}
+
 	return 0;
 }
 
