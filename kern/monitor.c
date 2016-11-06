@@ -108,7 +108,8 @@ int mon_showmappings(int argc, char **argv, struct Trapframe *tf){
 		unexpected = true;
 
 	if(unexpected){
-		cprintf("Not expected number! Align with PGSIZE = 0x%08x!\n", PGSIZE);
+		cprintf("Not expected number! Usage\n");
+		cprintf("K> showmappings 0xva_low 0xva_high\n");
 		return 0;
 	}
 
@@ -117,26 +118,49 @@ int mon_showmappings(int argc, char **argv, struct Trapframe *tf){
 	return 0;
 }
 
-
+extern pde_t *kern_pgdir;
+pte_t * pgdir_walk(pde_t *pgdir, const void *va, int create);
 int mon_permission(int argc, char **argv, struct Trapframe *tf){
-	uint32_t va;
-	uint32_t newperm;
+	uint32_t va=0, perm=0;
+	char type, flag;
+	pte_t * pte;
 	bool unexpected = false;
 
-	if(argc != 3 || !(va = strtol(argv[1], NULL, 16)))
-		unexpected = true;
-	if(va != ROUNDUP(va, PGSIZE))
+	if(argc != 4 || !(va = strtol(argv[1], NULL, 16)))
 		unexpected = true;
 
+	type = argv[2][0];
+	if(va != ROUNDUP(va, PGSIZE) || !(type == 'c' || type == 's'))
+		unexpected = true;
 
-
+	flag = argv[3][0];
+	switch(flag){
+		case 'P': perm = PTE_P; break;
+		case 'W': perm = PTE_W; break;
+		case 'U': perm = PTE_U; break;
+		default: unexpected = true; break;
+	}
+	
+	if(unexpected)
 	{
-		cprintf("Not expected input! permission va newperm is wanted\nTo clear, leave newperm -4\n");
+		cprintf("Not expected input! Usage\n");
+		cprintf("K> permission 0xva [c|s :clear or set] [P|W|U]\n");
 		return 0;
 	}
-	newperm = strtol(argv[2], NULL, 0);
 
+	pte = pgdir_walk(kern_pgdir, (const void*)va, 1);
+	cprintf("origin:  0x%08x\tP: %1d\tW: %1d\tU: %1d\n", va, *pte&PTE_P, *pte&PTE_W, *pte&PTE_U);
 
+	if(type == 'c'){
+		cprintf("clearing virtual addr 0x%08x permission\n", va);
+		*pte = *pte & ~perm;
+	}
+	else{
+		cprintf("setting virtual addr 0x%08x permission\n", va);
+		*pte = *pte | perm;
+	}
+
+	cprintf("current: 0x%08x\tP: %1d\tW: %1d\tU: %1d\n", va, *pte&PTE_P, *pte&PTE_W, *pte&PTE_U);
 	return 0;
 }
 

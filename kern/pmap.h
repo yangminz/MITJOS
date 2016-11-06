@@ -62,6 +62,12 @@ void	page_decref(struct PageInfo *pp);
 
 void	tlb_invalidate(pde_t *pgdir, void *va);
 
+//
+// yangminz
+//
+void consult_pde();
+
+
 static inline physaddr_t
 page2pa(struct PageInfo *pp)
 {

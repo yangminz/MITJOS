@@ -237,6 +237,11 @@ mem_init(void)
 
 	// Some more checks, only possible after kern_pgdir is installed.
 	// check_page_installed_pgdir();
+
+	//
+	// yangminz
+	//
+	// consult_pde();
 }
 
 // --------------------------------------------------------------
@@ -569,6 +574,17 @@ tlb_invalidate(pde_t *pgdir, void *va)
 //
 // yangminz: Commands
 //
+void consult_pde(){
+  uint32_t i = 0;
+  uintptr_t base_va = 0;
+  pde_t * pg_dir_entry = NULL;
+  cprintf("check page directory entries!\n");
+  for(i = 0; i < 1024; i ++){
+    base_va = i * 0x00400000;
+    pg_dir_entry = &kern_pgdir[PDX(base_va)];
+    cprintf("%04d\t0x%08x\t0x%08x\n", i, base_va, *pg_dir_entry);
+  }
+}
 
 int showmappings(uint32_t va1, uint32_t va2){
 	uint32_t va = va1;
