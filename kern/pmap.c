@@ -631,6 +631,40 @@ user_mem_assert(struct Env *env, const void *va, size_t len, int perm)
 }
 
 
+//
+// yangminz: Commands
+//
+void consult_pde(){
+  uint32_t i = 0;
+  uintptr_t base_va = 0;
+  pde_t * pg_dir_entry = NULL;
+  cprintf("check page directory entries!\n");
+  for(i = 0; i < 1024; i ++){
+    base_va = i * 0x00400000;
+    pg_dir_entry = &kern_pgdir[PDX(base_va)];
+    cprintf("%04d\t0x%08x\t0x%08x\n", i, base_va, *pg_dir_entry);
+  }
+}
+int showmappings(uint32_t va1, uint32_t va2){
+    uint32_t va = va1;
+    char own[10], perm[10];
+    pte_t * pte;
+    for(va = va1; va <= va2; va += PGSIZE){
+        // detect user, kern or both
+        pte = pgdir_walk(kern_pgdir, (const void*)va, 0);
+        if(*pte & PTE_U)
+            strcpy(own, "user");
+        else
+            strcpy(own, "kern");
+        if(*pte & PTE_W)
+            strcpy(perm, "read/write");
+        else
+            strcpy(perm, "read only");
+        cprintf("[0x%08x,0x%08x)-> 0x%08x\t%s:\t%s\n", va, va+PGSIZE, PTE_ADDR(*pte), own, perm);
+    }
+    return 0;
+}
+
 // --------------------------------------------------------------
 // Checking functions.
 // --------------------------------------------------------------
