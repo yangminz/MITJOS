@@ -116,6 +116,26 @@ env_init(void)
 {
 	// Set up envs array
 	// LAB 3: Your code here.
+	size_t i;
+	env_free_list = NULL;
+	for (i = NENV - 1; i >= 1; i--) {
+		envs[i].env_id = 0;
+		envs[i].env_parent_id = 0;
+		envs[i].env_type = ENV_TYPE_USER;
+		envs[i].env_status = ENV_FREE;
+		envs[i].env_runs = 0;
+		envs[i].env_pgdir = NULL;
+		envs[i].env_link = env_free_list;
+		env_free_list = &envs[i];
+	}
+	envs[0].env_id = 0;
+	envs[0].env_parent_id = 0;
+	envs[0].env_type = ENV_TYPE_USER;
+	envs[0].env_status = ENV_FREE;
+	envs[0].env_runs = 0;
+	envs[0].env_pgdir = NULL;
+	envs[0].env_link = env_free_list;
+	env_free_list = &envs[0];
 
 	// Per-CPU part of the initialization
 	env_init_percpu();
