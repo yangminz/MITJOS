@@ -85,6 +85,8 @@ trap_init(void)
 	extern void int_align();
 	extern void int_mchk();
 	extern void int_simderr();
+	// SYSTEM CALL
+	extern void system_call();
 
 	SETGATE(idt[T_DIVIDE], 0, GD_KT, int_divide, 0); 
 	SETGATE(idt[T_DEBUG], 0, GD_KT, int_debug, 0); 
@@ -104,6 +106,8 @@ trap_init(void)
 	SETGATE(idt[T_ALIGN], 0, GD_KT, int_align, 0); 
 	SETGATE(idt[T_MCHK], 0, GD_KT, int_mchk, 0); 
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, int_simderr, 0);
+	// SYSTEM CALL
+	SETGATE(idt[T_SYSCALL], 0, GD_KT, system_call, 3);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -180,35 +184,38 @@ print_regs(struct PushRegs *regs)
 static void
 trap_dispatch(struct Trapframe *tf)
 {
-	// Handle processor exceptions.
-	// LAB 3: Your code here.
-	switch(tf->tf_trapno)
-	{
-		case T_PGFLT:
-				page_fault_handler(tf);
-				return;
-		case T_BRKPT:
-				monitor(tf);
-				return;
+    // Handle processor exceptions.
+    // LAB 3: Your code here.
+    switch(tf->tf_trapno)
+    {
+        case T_PGFLT:
+                page_fault_handler(tf);
+                return;
+        case T_BRKPT:
+                monitor(tf);
+                return;
 
-		case T_SYSCALL:
-				tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax, 
-							tf->tf_regs.reg_edx,
-							tf->tf_regs.reg_ecx,
-							tf->tf_regs.reg_ebx,
-							tf->tf_regs.reg_edi,
-							tf->tf_regs.reg_esi);
-				return ;
-	}
+        case T_SYSCALL:
+                tf->tf_regs.reg_eax = syscall(
+                    tf->tf_regs.reg_eax, 
+                    tf->tf_regs.reg_edx,
+                    tf->tf_regs.reg_ecx,
+                    tf->tf_regs.reg_ebx,
+                    tf->tf_regs.reg_edi,
+                    tf->tf_regs.reg_esi
+                );
+        		cprintf("fuuuuuuuuuuk\n");
+                return;
+    }
 
-	// Unexpected trap: The user process or the kernel has a bug.
-	print_trapframe(tf);
-	if (tf->tf_cs == GD_KT)
-		panic("unhandled trap in kernel");
-	else {
-		env_destroy(curenv);
-		return;
-	}
+    // Unexpected trap: The user process or the kernel has a bug.
+    print_trapframe(tf);
+    if (tf->tf_cs == GD_KT)
+        panic("unhandled trap in kernel");
+    else {
+        env_destroy(curenv);
+        return;
+    }
 }
 
 void

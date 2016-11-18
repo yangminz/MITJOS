@@ -122,7 +122,7 @@ env_init(void)
 		envs[i].env_id = 0;
 		envs[i].env_parent_id = 0;
 		envs[i].env_type = ENV_TYPE_USER;
-		envs[i].env_status = 0;
+		envs[i].env_status = ENV_FREE;
 		envs[i].env_runs = 0;
 		envs[i].env_pgdir = NULL;
 		envs[i].env_link = env_free_list;
@@ -284,17 +284,17 @@ region_alloc(struct Env *e, void *va, size_t len)
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
 	struct PageInfo * pp;
-	int i = 0, ret = 0;
-	va = ROUNDDOWN(va, PGSIZE);
-	len = ROUNDUP(len, PGSIZE);
-	for(i = 0; i < len; i += PGSIZE){
+	int ret = 0;
+	void * start = (void *)ROUNDDOWN((uint32_t)va, PGSIZE);
+	void * end = (void *)ROUNDUP((uint32_t)va+len, PGSIZE);
+	void * i;
+	for(i = start; i < end; i += PGSIZE){
 		pp = page_alloc(0);
 		if(!pp)
 			panic("failed to allocate pa for env!\n");
-		ret = page_insert(e->env_pgdir, pp, va, PTE_U | PTE_W);
+		ret = page_insert(e->env_pgdir, pp, i, PTE_U | PTE_W);
 		if(ret)
 			panic("failed to insert page!\n");
-		va += PGSIZE;
 	}
 }
 
