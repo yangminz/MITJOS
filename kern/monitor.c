@@ -30,6 +30,7 @@ static struct Command commands[] = {
 	{ "showmappings", "Display all of the physical page mappings", mon_showmappings },
 	{ "permission", "Explicitly set, clear, or change the permissions of mappings", mon_permission },
 	{ "dumpmem", "Dump the contents of a range of memory", mon_dumpmemory },
+	{ "step", "single step from current location", mon_step },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -111,7 +112,7 @@ int mon_showmappings(int argc, char **argv, struct Trapframe *tf){
 		unexpected = true;
 
 	if(unexpected){
-		cprintf("Not expected number! Usage\n");
+		cprintf("Not expected format! Usage\n");
 		cprintf(" > showmappings 0xva_low 0xva_high\n");
 		return 0;
 	}
@@ -146,7 +147,7 @@ int mon_permission(int argc, char **argv, struct Trapframe *tf){
 	
 	if(unexpected)
 	{
-		cprintf("Not expected input! Usage\n");
+		cprintf("Not expected format! Usage\n");
 		cprintf(" > permission 0xva [c|s :clear or set] [P|W|U]\n");
 		return 0;
 	}
@@ -183,7 +184,7 @@ int mon_dumpmemory(int argc, char **argv, struct Trapframe *tf){
 		unexpected = true;
 
 	if(unexpected){
-		cprintf("Not expected input! Usage:\n");
+		cprintf("Not expected format! Usage:\n");
 		cprintf(" > dumpmem [p|v addr type] 0xaddr N\n");
 	}
 
@@ -199,6 +200,28 @@ int mon_dumpmemory(int argc, char **argv, struct Trapframe *tf){
 
 	return 0;
 }
+
+// lab3 single step
+extern struct Env * curenv;
+extern void env_run(struct Env *e);
+int mon_step(int argc, char **argv, struct Trapframe *tf){
+	if(argc != 1){
+		cprintf("Not expected format! Usage\n");
+		cprintf(" > step\n");
+		return 0;
+	}
+
+	if(tf == NULL){
+		cprintf("single step error!\n");
+		return 0;
+	}
+	tf->tf_eflags |= FL_TF;
+	cprintf("now eip at\t%08x\n", tf->tf_eip);
+	env_run(curenv);
+
+	return 0;
+}
+
 
 
 
