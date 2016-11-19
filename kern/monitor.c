@@ -25,6 +25,7 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "backtrace the kernel", mon_backtrace },
 	// yanginz: add commands
 	{ "showmappings", "Display all of the physical page mappings", mon_showmappings },
 	{ "permission", "Explicitly set, clear, or change the permissions of mappings", mon_permission },
