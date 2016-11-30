@@ -7,7 +7,7 @@
 #include <inc/string.h>
 #include <inc/stdarg.h>
 #include <inc/error.h>
-
+//#include <inc/csa.h>
 /*
  * Space or zero padding and a field width are supported for the numeric
  * formats only.
@@ -17,6 +17,8 @@
  * The integer may be positive or negative,
  * so that -E_NO_MEM and E_NO_MEM are equivalent.
  */
+
+int csa;
 
 static const char * const error_string[MAXERROR] =
 {
@@ -89,11 +91,14 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	unsigned long long num;
 	int base, lflag, width, precision, altflag;
 	char padc;
+	uint32_t COLOR = 0X00000000;
 
 	while (1) {
 		while ((ch = *(unsigned char *) fmt++) != '%') {
-			if (ch == '\0')
+			if (ch == '\0'){
+				csa = 0x0700;
 				return;
+			}
 			putch(ch, putdat);
 		}
 
@@ -159,7 +164,9 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// character
 		case 'c':
-			putch(va_arg(ap, int), putdat);
+			ch = va_arg(ap, int) | COLOR;
+			putch(ch, putdat);
+			COLOR = 0X00000000;
 			break;
 
 		// error message
@@ -208,6 +215,8 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// (unsigned) octal
 		case 'o':
 			// Replace this with your code.
+			num = getint(&ap, lflag);
+			base = 8;
 			putch('X', putdat);
 			putch('X', putdat);
 			putch('X', putdat);
@@ -233,6 +242,11 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// escaped '%' character
 		case '%':
 			putch(ch, putdat);
+			break;
+
+
+		case 'C':
+			csa = getint(&ap, lflag);
 			break;
 
 		// unrecognized escape sequence - just print it literally
@@ -298,5 +312,6 @@ snprintf(char *buf, int n, const char *fmt, ...)
 
 	return rc;
 }
+
 
 
