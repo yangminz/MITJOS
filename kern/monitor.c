@@ -30,7 +30,7 @@ static struct Command commands[] = {
 	{ "showmappings", "Display all of the physical page mappings", mon_showmappings },
 	{ "permission", "Explicitly set, clear, or change the permissions of mappings", mon_permission },
 	{ "dumpmem", "Dump the contents of a range of memory", mon_dumpmemory },
-	{ "step", "single step from current location", mon_step },
+	// { "step", "single step from current location", mon_step },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -201,6 +201,7 @@ int mon_dumpmemory(int argc, char **argv, struct Trapframe *tf){
 	return 0;
 }
 
+/*
 // lab3 single step
 extern struct Env * curenv;
 extern void env_run(struct Env *e);
@@ -221,7 +222,7 @@ int mon_step(int argc, char **argv, struct Trapframe *tf){
 
 	return 0;
 }
-
+*/
 
 
 
