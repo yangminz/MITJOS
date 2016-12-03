@@ -155,14 +155,14 @@ mem_init(void)
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
 	pages = (struct PageInfo *)boot_alloc(sizeof(struct PageInfo) * npages);
-	memset(pages, 0, sizeof(struct PageInfo) * npages);
+	//memset(pages, 0, sizeof(struct PageInfo) * npages);
 
 	
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
 	envs = (struct Env *)boot_alloc(sizeof(struct Env) * NENV);
-	memset(envs, 0, sizeof(struct Env) * NENV);
+	//memset(envs, 0, sizeof(struct Env) * NENV);
 
 
 	//////////////////////////////////////////////////////////////////////
@@ -332,13 +332,17 @@ page_init(void)
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
 	size_t i;
-	uint32_t pages_end = PGNUM((int)((char *)pages) + (sizeof(struct PageInfo) * npages) - 0xf0000000);
-	for (i = 0; i < npages; i++) {
-		if ((1 <= i && i < npages_basemem) || pages_end <= i){
+	for (i = 1; i <= 159; i++) {
+		if(i != 7){
 			pages[i].pp_ref = 0;
 			pages[i].pp_link = page_free_list;
 			page_free_list = &pages[i];
 		}
+	}
+	for (i = 750; i < npages; i++) {
+		pages[i].pp_ref = 0;
+		pages[i].pp_link = page_free_list;
+		page_free_list = &pages[i];
 	}
 }
 
@@ -658,7 +662,19 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
+	static uintptr_t base = MMIOBASE;
+	void * ret = (void *)base;
+	// round size up to a multiple of PGSIZE
+	size = ROUNDUP(size, PGSIZE);
+	//  if this reservation would overflow MMIOLIM
+	if(base + size > MMIOLIM || base + size < base)
 	panic("mmio_map_region not implemented");
+	// Hint: The staff solution uses boot_map_region
+	//  simply create the mapping with PTE_PCD|PTE_PWT in addition to PTE_W
+	boot_map_region(kern_pgdir, base, size, pa,
+	(PTE_W|PTE_PCD|PTE_PWT)); 
+	base += size;
+	return ret;
 }
 
 
