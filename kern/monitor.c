@@ -25,13 +25,8 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{ "backtrace", "backtrace the kernel", mon_backtrace },
-	// yanginz: add commands
-	{ "showmappings", "Display all of the physical page mappings", mon_showmappings },
-	{ "permission", "Explicitly set, clear, or change the permissions of mappings", mon_permission },
-	{ "dumpmem", "Dump the contents of a range of memory", mon_dumpmemory },
-	// { "step", "single step from current location", mon_step },
 };
+#define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
 /***** Implementations of basic kernel monitor commands *****/
 
@@ -40,7 +35,7 @@ mon_help(int argc, char **argv, struct Trapframe *tf)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(commands); i++)
+	for (i = 0; i < NCOMMANDS; i++)
 		cprintf("%s - %s\n", commands[i].name, commands[i].desc);
 	return 0;
 }
@@ -61,168 +56,69 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+unsigned int read_eip()
+{
+    unsigned int callerpc;
+    __asm __volatile("movl 4(%%ebp), %0" : "=r" (callerpc));
+    return callerpc;
+}
+
+#define J_NEXT_EBP(ebp) (*(unsigned int*)ebp)
+#define J_ARG_N(ebp, n) (*(unsigned int*)(ebp + n))
+
+extern unsigned int bootstacktop;
+static struct Eipdebuginfo info = {0};
+static inline unsigned int*
+dump_stack(unsigned int* p)
+{
+    unsigned int i = 0;
+
+    cprintf("ebp %08x eip %08x args", p, J_ARG_N(p, 1));
+    
+    for (i = 2; i < 7;i++)
+    {
+        cprintf(" %08x \n", J_ARG_N(p, i));
+    }
+    
+    return (unsigned int*)J_NEXT_EBP(p);
+}
+
+static inline unsigned int*
+dump_backstrace_symbols(unsigned int *p)
+{
+
+    cprintf("%s %d\n",info.eip_fn_name, info.eip_line);
+
+    debuginfo_eip((uintptr_t)*(p+1), &info);
+
+    return (unsigned int*)J_NEXT_EBP(p);
+}
+
+
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	uint32_t * ebp = (uint32_t *)read_ebp();
-	uint32_t eip;
-	uint32_t arg0, arg1, arg2, arg3, arg4;
-	uintptr_t addr;
-	struct Eipdebuginfo info;
+	// Your code here.
+    unsigned int *p  = (unsigned int*) read_ebp();
+    unsigned int eip = read_eip();
 
-	cprintf("Stack backtrace:\n");
+    cprintf("current eip=%08x", eip);
+    debuginfo_eip((uintptr_t) eip, &info);
+    cprintf("\n");
+    do
+    {
+        p = dump_stack(p);
+    }while(p);
 
-	//__asm __volatile("movl 4(%%ebp), %0" : "r" (eip));
-
-	while(ebp != 0){
-		eip = *(uint32_t *)(ebp + 1);
-		addr = (uintptr_t)*(ebp + 1);
-		arg0 = ebp[2];
-		arg1 = ebp[3];
-		arg2 = ebp[4];
-		arg3 = ebp[5];
-		arg4 = ebp[6];
-		cprintf("ebp %08x eip %08x args %08x %08x %08x %08x %08x\n", ebp, eip, arg0, arg1, arg2, arg3, arg4);
-		memset(&info, 0, sizeof(info));
-		debuginfo_eip(addr, &info);
-		ebp = (uint32_t *)(*(uint32_t *)ebp);
-	}
-	return 0;
-}
-
-//
-// yangminz: commands added
-//
-
-int showmappings(uint32_t va1, uint32_t va2);
-int mon_showmappings(int argc, char **argv, struct Trapframe *tf){
-	uint32_t va1, va2;
-	uint32_t va = 0;
-	bool unexpected = false;
-
-	if(argc != 3)
-		unexpected = true;
-	if(!(va1 = strtol(argv[1], NULL, 16)))
-		unexpected = true;
-	if(!(va2 = strtol(argv[2], NULL, 16)))
-		unexpected = true;
-	if( va1 != ROUNDUP(va1, PGSIZE) ||
-		va2 != ROUNDUP(va2, PGSIZE) ||
-		va1 > va2)
-		unexpected = true;
-
-	if(unexpected){
-		cprintf("Not expected format! Usage\n");
-		cprintf(" > showmappings 0xva_low 0xva_high\n");
-		return 0;
-	}
-
-	showmappings(va1, va2);
+    cprintf("\n");
+    p = (unsigned int*)read_ebp();
+    do
+    {
+        p = dump_backstrace_symbols(p);
+    }while(p);
 
 	return 0;
 }
-
-extern pde_t *kern_pgdir;
-pte_t * pgdir_walk(pde_t *pgdir, const void *va, int create);
-int mon_permission(int argc, char **argv, struct Trapframe *tf){
-	uint32_t va=0, perm=0;
-	char type, flag;
-	pte_t * pte;
-	bool unexpected = false;
-
-	if(argc != 4 || !(va = strtol(argv[1], NULL, 16)))
-		unexpected = true;
-
-	type = argv[2][0];
-	if(va != ROUNDUP(va, PGSIZE) || !(type == 'c' || type == 's'))
-		unexpected = true;
-
-	flag = argv[3][0];
-	switch(flag){
-		case 'P': perm = PTE_P; break;
-		case 'W': perm = PTE_W; break;
-		case 'U': perm = PTE_U; break;
-		default: unexpected = true; break;
-	}
-	
-	if(unexpected)
-	{
-		cprintf("Not expected format! Usage\n");
-		cprintf(" > permission 0xva [c|s :clear or set] [P|W|U]\n");
-		return 0;
-	}
-
-	pte = pgdir_walk(kern_pgdir, (const void*)va, 1);
-	cprintf("origin:  0x%08x\tP: %1d\tW: %1d\tU: %1d\n", va, *pte&PTE_P, *pte&PTE_W, *pte&PTE_U);
-
-	if(type == 'c'){
-		cprintf("clearing virtual addr 0x%08x permission\n", va);
-		*pte = *pte & ~perm;
-	}
-	else{
-		cprintf("setting virtual addr 0x%08x permission\n", va);
-		*pte = *pte | perm;
-	}
-
-	cprintf("current: 0x%08x\tP: %1d\tW: %1d\tU: %1d\n", va, *pte&PTE_P, *pte&PTE_W, *pte&PTE_U);
-	return 0;
-}
-
-int mon_dumpmemory(int argc, char **argv, struct Trapframe *tf){
-	bool unexpected = false;
-	uint32_t n = -1, i = 0, bias = KERNBASE/4;
-	void ** addr = NULL;
-	char type;
-
-	type = argv[1][0];
-	if(argc != 4 || !(addr = (void **)strtol(argv[2], 0, 16)))
-		unexpected = true;
-	n = strtol(argv[3], 0, 0);
-	if(addr != ROUNDUP(addr, PGSIZE) ||
-		!(type == 'p' || type == 'v') ||
-		n <= 0)
-		unexpected = true;
-
-	if(unexpected){
-		cprintf("Not expected format! Usage:\n");
-		cprintf(" > dumpmem [p|v addr type] 0xaddr N\n");
-	}
-
-	if(type == 'p'){
-		cprintf("!\n");
-		for(i = bias; i < n + bias; i ++)
-		cprintf("physical memory:0x%08x\tvalue:0x%08x\n", addr + i, addr[i]);
-	}
-	if(type == 'v'){
-		for(i = 0; i < n; i ++)
-		cprintf("virtual memory:0x%08x\tvalue:0x%08x\n", addr + i, addr[i]);
-	}
-
-	return 0;
-}
-
-/*
-// lab3 single step
-extern struct Env * curenv;
-extern void env_run(struct Env *e);
-int mon_step(int argc, char **argv, struct Trapframe *tf){
-	if(argc != 1){
-		cprintf("Not expected format! Usage\n");
-		cprintf(" > step\n");
-		return 0;
-	}
-
-	if(tf == NULL){
-		cprintf("single step error!\n");
-		return 0;
-	}
-	tf->tf_eflags |= FL_TF;
-	cprintf("now eip at\t%08x\n", tf->tf_eip);
-	env_run(curenv);
-
-	return 0;
-}
-*/
 
 
 
@@ -262,7 +158,7 @@ runcmd(char *buf, struct Trapframe *tf)
 	// Lookup and invoke the command
 	if (argc == 0)
 		return 0;
-	for (i = 0; i < ARRAY_SIZE(commands); i++) {
+	for (i = 0; i < NCOMMANDS; i++) {
 		if (strcmp(argv[0], commands[i].name) == 0)
 			return commands[i].func(argc, argv, tf);
 	}
@@ -275,9 +171,9 @@ monitor(struct Trapframe *tf)
 {
 	char *buf;
 
+	//cprintf("Welcome to %Cc the JOS kernel monitor!\n", COLOR_GRN, 'H');
 	cprintf("Welcome to the JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
-	cprintf("%C%s test!\n",0x0400, "Color");
 
 	if (tf != NULL)
 		print_trapframe(tf);

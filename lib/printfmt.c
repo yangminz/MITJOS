@@ -7,7 +7,7 @@
 #include <inc/string.h>
 #include <inc/stdarg.h>
 #include <inc/error.h>
-//#include <inc/csa.h>
+
 /*
  * Space or zero padding and a field width are supported for the numeric
  * formats only.
@@ -17,8 +17,6 @@
  * The integer may be positive or negative,
  * so that -E_NO_MEM and E_NO_MEM are equivalent.
  */
-
-int csa;
 
 static const char * const error_string[MAXERROR] =
 {
@@ -91,14 +89,13 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	unsigned long long num;
 	int base, lflag, width, precision, altflag;
 	char padc;
-	uint32_t COLOR = 0X00000000;
+
+    int Color = 0;// EOF added
 
 	while (1) {
 		while ((ch = *(unsigned char *) fmt++) != '%') {
-			if (ch == '\0'){
-				csa = 0x0700;
+			if (ch == '\0')
 				return;
-			}
 			putch(ch, putdat);
 		}
 
@@ -164,10 +161,31 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// character
 		case 'c':
-			ch = va_arg(ap, int) | COLOR;
+            /*
+             * EOF added
+             */
+            ch = va_arg(ap, int) + Color;
 			putch(ch, putdat);
-			COLOR = 0X00000000;
+            Color = 0;
+
 			break;
+
+        case 'C':
+            switch(va_arg(ap, int))
+            {
+                case COLOR_RED:
+                    Color = COLOR_RED<<8;
+                    break;
+
+                case COLOR_GRN:
+                    Color = COLOR_GRN<<8;
+                    break;
+
+                default:
+                    Color = 0;
+            }
+
+            goto reswitch;
 
 		// error message
 		case 'e':
@@ -215,12 +233,14 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// (unsigned) octal
 		case 'o':
 			// Replace this with your code.
-			num = getint(&ap, lflag);
-			base = 8;
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
-			break;
+
+            /*
+                What I added. --by EOF
+             */
+
+            num = getuint(&ap, lflag);
+            base = 8;
+			goto number;
 
 		// pointer
 		case 'p':
@@ -242,11 +262,6 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// escaped '%' character
 		case '%':
 			putch(ch, putdat);
-			break;
-
-
-		case 'C':
-			csa = getint(&ap, lflag);
 			break;
 
 		// unrecognized escape sequence - just print it literally
@@ -312,6 +327,5 @@ snprintf(char *buf, int n, const char *fmt, ...)
 
 	return rc;
 }
-
 
 
