@@ -204,6 +204,13 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
+    if(tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER)
+    {
+        //time_tick();
+        lapic_eoi();
+        sched_yield();
+        return;
+    }
 
     switch(tf->tf_trapno)
     {
@@ -223,14 +230,6 @@ trap_dispatch(struct Trapframe *tf)
                             tf->tf_regs.reg_esi);
                 return ;
                 
-    }
-
-    if(tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER)
-    {
-        //time_tick();
-        lapic_eoi();
-        sched_yield();
-        return;
     }
 
 	// Unexpected trap: The user process or the kernel has a bug.
@@ -360,8 +359,8 @@ page_fault_handler(struct Trapframe *tf)
         else 
             utf_addr = UXSTACKTOP - sizeof(struct UTrapframe);
         user_mem_assert(curenv, (void*)utf_addr, 1, PTE_W);
-        utf = (struct UTrapframe *) utf_addr;
 
+        utf = (struct UTrapframe *) utf_addr;
         utf->utf_fault_va = fault_va;
         utf->utf_err = tf->tf_err;
         utf->utf_regs = tf->tf_regs;
