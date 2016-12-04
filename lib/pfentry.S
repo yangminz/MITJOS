@@ -66,7 +66,6 @@ _pgfault_upcall:
 	//
 	// LAB 4: Your code here.
     movl %esp, %ebx
-    // 40 is the size between utf_fault_va ~ utf_regs
     movl 40(%esp), %eax
     movl 48(%esp), %esp
     pushl %eax
@@ -74,7 +73,6 @@ _pgfault_upcall:
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
 	// LAB 4: Your code here.
-
     movl %ebx, %esp
     subl $4, 48(%esp)
     popl %eax
@@ -90,7 +88,6 @@ _pgfault_upcall:
 
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.
-
     popl %esp
 
 	// Return to re-execute the instruction that faulted.

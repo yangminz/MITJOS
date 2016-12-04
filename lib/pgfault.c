@@ -31,13 +31,11 @@ set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
 		// LAB 4: Your code here.
 
         void *va = (void *)(UXSTACKTOP - PGSIZE);
-        if (sys_page_alloc(thisenv->env_id, va, PTE_P | PTE_U | PTE_W))
-        {
+        if (sys_page_alloc(thisenv->env_id, va, PTE_P | PTE_U | PTE_W))        {
             panic("Unable to allocate memory for pgfault expected\n");
         }
 
         sys_env_set_pgfault_upcall(thisenv->env_id, _pgfault_upcall);
-
 		//panic("set_pgfault_handler not implemented");
 	}
 
