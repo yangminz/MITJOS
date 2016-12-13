@@ -13,6 +13,7 @@ umain(int argc, char **argv)
 	int i;
 
 	// fork a child process
+    cprintf("address of i : %x\n", &i);
 	who = dumbfork();
 
 	// print a message and yield to the other a few times
