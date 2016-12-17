@@ -214,7 +214,21 @@ serve_read(envid_t envid, union Fsipc *ipc)
 		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// Lab 5: Your code here:
-	return 0;
+	struct OpenFile *o;
+	int r;
+
+	// First, use openfile_lookup to find the relevant open file.
+	// On failure, return the error code to the client with ipc_send.
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+		return r;
+
+	// Second, call the relevant file system function (from fs/fs.c).
+	// On failure, return the error code to the client.
+	ssize_t sz = file_read(o->o_file, (void *)ret->ret_buf, MIN(req->req_n, PGSIZE), o->o_fd->fd_offset);
+    if(sz > 0){
+        o->o_fd->fd_offset += sz;
+    }
+	return sz;
 }
 
 

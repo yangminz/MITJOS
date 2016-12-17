@@ -149,38 +149,33 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 {
     // LAB 5: Your code here.
     uint32_t blkno;
-
-    if(filebno < NDIRECT)
-    {
+    // filebno in [0, 9]
+    if(filebno <= 9){
+        // Set '*ppdiskbno' to point to one of the f->f_direct[] entries
         *ppdiskbno = &f->f_direct[filebno];
     }
-    else if(filebno < (NINDIRECT + NDIRECT))
-    {
-        if (!f->f_indirect)
-        {
-            if(!alloc)
-            {
+    // filebno in [10, 1033]
+    else if(filebno <= 1033){
+        if (!f->f_indirect){
+            if(!alloc){
                 return -E_NOT_FOUND;
             }
-
+            // When 'alloc' is set, allocate an indirect block if necessary.
             blkno = alloc_block();
-
-            if (blkno < 0)
-            {
+            //  -E_NO_DISK if there's no space on the disk for an indirect block.
+            if (blkno < 0){
                 return -E_NO_DISK;
             }
-
             f->f_indirect = blkno;
             memset(diskaddr(blkno), 0, BLKSIZE);
         }
-
-        *ppdiskbno = &((uintptr_t *) diskaddr(f->f_indirect))[filebno - NDIRECT];
+        // Set '*ppdiskbno' to point to an entry in the indirect block
+        *ppdiskbno = &((uintptr_t *) diskaddr(f->f_indirect))[filebno - 10];
     }
-    else
-    {
+    // filebno in [1034, inf)
+    else{
         return -E_INVAL;
     }
-
     return 0;
     //panic("file_block_walk not implemented");
 }
