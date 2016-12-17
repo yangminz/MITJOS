@@ -48,6 +48,14 @@ bc_pgfault(struct UTrapframe *utf)
 	// the disk.
 	//
 	// LAB 5: you code here:
+	// round addr to page boundary
+	addr = ROUNDDOWN(addr, PGSIZE);
+	// Allocate a page in the disk map region
+	sys_page_alloc(0, addr, PTE_W|PTE_U|PTE_P);
+	// Read the contents of the block from the disk 
+	if ((r = ide_read(blockno*BLKSECTS, addr, BLKSECTS)) < 0){
+		panic("failed to read contents from the disk: %e", r);
+	}
 
 	// Clear the dirty bit for the disk block page since we just read the
 	// block from disk
@@ -77,7 +85,20 @@ flush_block(void *addr)
 		panic("flush_block of bad va %08x", addr);
 
 	// LAB 5: Your code here.
-	panic("flush_block not implemented");
+	void *blkaddr = ROUNDDOWN(addr, PGSIZE);
+	envid_t envid = thisenv->env_id;
+	// If the block is not in the block cache or is not dirty, does nothing.
+	if (!va_is_mapped(addr) || !va_is_dirty(addr)){
+		return;
+	}
+	// After writing the block to disk, flush_block should clear the PTE_D bit using sys_page_map
+	if (ide_write(blockno * BLKSECTS, blkaddr, BLKSECTS) < 0){
+		panic("failed to write disk block\n");
+	}
+	// Use the PTE_SYSCALL constant when calling sys_page_map
+	if(sys_page_map(envid, blkaddr, envid, blkaddr, PTE_SYSCALL) < 0){
+		panic("failed to map disk page\n");
+	}
 }
 
 // Test that the block cache works, by smashing the superblock and
