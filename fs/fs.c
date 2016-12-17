@@ -147,8 +147,42 @@ fs_init(void)
 static int
 file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)
 {
-       // LAB 5: Your code here.
-       panic("file_block_walk not implemented");
+    // LAB 5: Your code here.
+    uint32_t blkno;
+
+    if(filebno < NDIRECT)
+    {
+        *ppdiskbno = &f->f_direct[filebno];
+    }
+    else if(filebno < (NINDIRECT + NDIRECT))
+    {
+        if (!f->f_indirect)
+        {
+            if(!alloc)
+            {
+                return -E_NOT_FOUND;
+            }
+
+            blkno = alloc_block();
+
+            if (blkno < 0)
+            {
+                return -E_NO_DISK;
+            }
+
+            f->f_indirect = blkno;
+            memset(diskaddr(blkno), 0, BLKSIZE);
+        }
+
+        *ppdiskbno = &((uintptr_t *) diskaddr(f->f_indirect))[filebno - NDIRECT];
+    }
+    else
+    {
+        return -E_INVAL;
+    }
+
+    return 0;
+    //panic("file_block_walk not implemented");
 }
 
 // Set *blk to the address in memory where the filebno'th
@@ -162,8 +196,26 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 int
 file_get_block(struct File *f, uint32_t filebno, char **blk)
 {
-       // LAB 5: Your code here.
-       panic("file_get_block not implemented");
+	// LAB 5: Your code here.
+	uint32_t *diskbno = NULL;
+    uint32_t err_type = file_block_walk(f, filebno, &diskbno, 1);
+
+    if(err_type < 0)
+    	return err_type;
+
+    if(! *diskbno){
+        uint32_t block_no = alloc_block();
+        //	-E_NO_DISK if a block needed to be allocated but the disk is full.
+        if (block_no < 0){
+            return -E_NO_DISK;
+        }
+        *diskbno = block_no;
+    }
+	// Set *blk to the address in memory where the filebno'th
+	// block of file 'f' would be mapped.
+    *blk = (char *)diskaddr(*diskbno);
+    return 0;
+	//panic("file_get_block not implemented");
 }
 
 // Try to find a file named "name" in dir.  If so, set *file to it.
